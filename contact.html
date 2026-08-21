@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact — deadman-guardian</title>
+<meta name="description" content="One email address. No form, no mailing list, no tracking.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="./">deadman-guardian <span>— a daily loss limit you cannot undo</span></a>
+    <nav>
+      <a href="./">Home</a>
+      <a href="compatibility.html">Firm compatibility</a>
+      <a href="how-it-works.html">How it works</a>
+      <a href="contact.html" aria-current="page">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+
+<h1>Contact</h1>
+
+<p class="lede">One address, read by the person who builds this. There is no form on this page, nothing to
+sign up for, and nothing that records that you visited.</p>
+
+<h2>Email</h2>
+
+<p id="email-slot" class="lede">
+  <span>roberto.deadmanguardian</span> [at] <span>gmail</span> [dot] <span>com</span>
+</p>
+
+<p class="small muted">Written out that way to keep it out of address harvesters. If your browser runs
+JavaScript, the line above becomes a normal clickable link.</p>
+
+<h2>What is worth writing about</h2>
+
+<ul>
+  <li><strong>A correction to the compatibility table.</strong> If a quote there is stale, misread, or your
+  firm has changed a rule, we would rather hear it from you than from a trader who lost an account. Send the
+  URL and the sentence.</li>
+  <li><strong>A ruling you obtained yourself.</strong> If your firm has told you in writing whether a
+  third-party risk tool is allowed, that is the most useful mail this address can get. It gets published
+  verbatim and attributed to the firm, not to you, unless you ask otherwise.</li>
+  <li><strong>A question about whether it fits your firm</strong> — with the caveat that the honest answer
+  is often the one already on <a href="compatibility.html">the compatibility page</a>, and that only your
+  firm's own written answer settles it.</li>
+</ul>
+
+<h2>If you are a prop firm</h2>
+
+<p>Requests for a written ruling have been written for ten firms and sent to eight of them — the remaining
+two are web forms, still to be submitted. Each one quotes the specific rule that creates the doubt and names
+the product, so the answer rules on this tool rather than on a hypothetical.
+Every reply is published on <a href="compatibility.html#rulings">the compatibility page</a>, quoted exactly,
+<strong>including the ones that say no</strong> — three do, and they are the first three there. If you want
+your firm's position corrected or stated, this address is the fastest route to it.</p>
+
+<h2>What this address is not</h2>
+
+<ul>
+  <li><strong>Not a support desk.</strong> The tool is in testing, has no users and no release; replies come
+  from one person and are best-effort.</li>
+  <li><strong>Not a sales channel.</strong> There is no price and nothing to buy. If that changes, it will
+  be on the home page before it is in an inbox.</li>
+  <li><strong>Not a mailing list.</strong> Your address is used to reply to you and for nothing else.</li>
+</ul>
+
+<div class="note">
+<p><strong>Never send credentials, account numbers, API keys or screenshots showing them.</strong> Nothing
+about this tool ever requires them — it runs on your machine and opens no socket — and no reply from this
+address will ever ask you for them.</p>
+</div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>No trackers, no analytics, no cookies, no third-party requests. This site is four static pages and
+    one stylesheet.</p>
+    <p>Page last updated 2026-08-21.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var slot = document.getElementById("email-slot");
+  if (!slot) { return; }
+  var user = ["roberto", "deadmanguardian"].join(".");
+  var host = ["gmail", "com"].join(".");
+  var addr = user + String.fromCharCode(64) + host;
+  var a = document.createElement("a");
+  a.href = "mai" + "lto:" + addr;
+  a.textContent = addr;
+  a.rel = "nofollow";
+  slot.textContent = "";
+  slot.appendChild(a);
+})();
+</script>
+
+</body>
+</html>

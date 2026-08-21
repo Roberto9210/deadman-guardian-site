@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How it works — deadman-guardian</title>
+<meta name="description" content="The commitment seal, the verifiable ledger and the fail-closed rule — with the limits from specification §17 stated on the same page.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="./">deadman-guardian <span>— a daily loss limit you cannot undo</span></a>
+    <nav>
+      <a href="./">Home</a>
+      <a href="compatibility.html">Firm compatibility</a>
+      <a href="how-it-works.html" aria-current="page">How it works</a>
+      <a href="contact.html">Contact</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+
+<h1>How it works</h1>
+
+<p class="lede">Three mechanisms carry the whole product: a configuration you seal for the day, a record you
+can verify without our code, and a rule that stops trading whenever the guard does not know something. The
+limits of all three are on this page, not in a footnote.</p>
+
+<h2>1. The commitment seal</h2>
+
+<p>You set one number: a personal daily loss limit, strictly smaller than your firm's. When you press Arm,
+the configuration is canonicalised and hashed (SHA-256), and the seal is written to disk with the exact
+config it covers, the moment it was armed, the trading day it governs, and the point in the ledger it was
+tied to. The seal expires at the next session reset — 17:00 CT by default.</p>
+
+<p><strong>Until then, every change is rejected — including one that would make the limit stricter.</strong>
+There is nothing to negotiate at 14:30 because there is nothing you can change. A config edited under the
+seal is detected on the next evaluation (<code>CONFIG_TAMPERED</code>) and a hand-edited seal is detected on
+the next start (<code>SEAL_MISMATCH</code>); both put the guard into a lockout rather than trusting the new
+file.</p>
+
+<p><strong>Moving the clock does not help — while it is running.</strong> The seal's expiry is measured on a
+monotonic counter you cannot set. Push your system clock past 17:00 and you get a blocked account and a
+logged anomaly, not a released seal.</p>
+
+<h2>2. The lockout, in an order that survives a crash</h2>
+
+<p>When your day's P&amp;L reaches the limit, the sequence is deliberately ordered so that the worst moment
+to be interrupted is still safe:</p>
+
+<ol>
+  <li>write <code>LOCKED</code> to disk — <strong>before</strong> the first order reaches your broker;</li>
+  <li>cancel every working order;</li>
+  <li>flatten every position;</li>
+  <li><strong>verify</strong> — and if the positions are not actually flat, say <code>LOCKOUT_INCOMPLETE</code>
+  and keep trying, rather than report a success it did not observe.</li>
+</ol>
+
+<p>Kill NinjaTrader mid-flatten and the restart comes back locked, not "armed and fine". That is a test, not
+a promise: the soak suite kills the process mid-lockout on a simulated account and checks that the restart
+resumes <code>LOCKED</code>.</p>
+
+<p><strong>A single flatten is not a lockout.</strong> While locked, every new order — from the DOM, a
+chart, a running strategy — is cancelled on sight and recorded as <code>ORDER_REJECTED_LOCKED</code>.</p>
+
+<p>Enforcement is <em>detect-and-cancel</em>, not prevention, and that is a platform fact rather than a
+design choice: 2,912 types were scanned inside the running NinjaTrader process and <strong>no pre-submit
+hook exists</strong> — there is no event that can veto an order before submission. The full cycle was
+measured at <strong>315.9 ms</strong> end to end, of which <strong>14.4 ms</strong> were ours and the rest
+belonged to the platform and the venue.</p>
+
+<h2>3. Fail-closed: when it does not know, it stops</h2>
+
+<p>Any of these means the guard does not know the truth, so it blocks new entries and says why:</p>
+
+<ul>
+  <li>P&amp;L not computable — for example, no market data for an open position;</li>
+  <li>its own P&amp;L and NinjaTrader's disagreeing beyond the tolerance you set;</li>
+  <li>a guarded account missing from the platform's account list, disconnected, or its currency changed;</li>
+  <li>a clock anomaly;</li>
+  <li>the ledger not writable, or its chain failing verification;</li>
+  <li>the state or the seal unreadable, or of a schema version it does not recognise.</li>
+</ul>
+
+<p><code>FAIL_CLOSED</code> is not a lockout: it clears by itself the moment the unknown resolves — but it
+clears <em>through</em> a re-computation, never by assumption. It is logged on entry and on exit, with the
+reason, so "the guard was blind for 40 minutes" is something you can find out afterwards.</p>
+
+<div class="note">
+<p>Two of the defects found during development were exactly here, and both are in the record rather than
+quietly fixed: a clock anomaly that cleared itself because the P&amp;L happened to be computable — which was
+never what was in doubt — and a truncated state file that threw an exception instead of resolving to
+"unknown". Malformed input now always resolves to unparseable, which is an unknown, which fails closed.</p>
+</div>
+
+<h2>4. The ledger you can verify without our code</h2>
+
+<p>Every arm, every breach, every cancel, every rejected attempt to loosen the limit is appended to a
+JSONL file, one event per line, each line carrying the hash of the previous one. It is append-only and
+SHA-256 chained, so an edit anywhere breaks the chain from that point on, and the break has a location.</p>
+
+<p>You do not need our software to check it. Anything that can hash JSON will do:</p>
+
+<pre><code>import json, hashlib
+prev = "genesis"
+for line in open(r"...\deadman-guardian\ledger.jsonl", encoding="utf-8"):
+    e = json.loads(line); h = e.pop("hash")
+    canon = json.dumps(e, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert e["prev"] == prev and hashlib.sha256(canon.encode()).hexdigest() == h
+    prev = h
+print("chain OK")</code></pre>
+
+<p>The uninstaller deliberately leaves your ledger behind.</p>
+
+<h2>5. What it never does</h2>
+
+<p>It never opens a position. The only orders it ever sends are cancels and flattens. It opens no socket:
+no telemetry, no cloud, no licence check, no auto-update. It reads your fills and your account's P&amp;L,
+locally, and writes to three files on your disk. One of the 26 named guarantees asserts this by reflection —
+that the core library references no NinjaTrader assembly and no network stack — and another asserts that no
+<code>double</code> appears anywhere on its public surface, because money is <code>decimal</code> or it is a
+rounding bug waiting for a bad day.</p>
+
+<h2 id="limits">What this does not protect against</h2>
+
+<p>This is section 17 of the specification, which was written before the first line of C#. It is repeated
+here in full, on the page that sells the thing, for the reason that a guarantee is only worth what its
+stated exceptions are worth.</p>
+
+<h3>Deleting the add-on before the session</h3>
+<p>A trader who closes NinjaTrader, removes the add-on, and reopens the platform is not protected, and
+nothing in this design can prevent that. What remains is that the <em>absence</em> is visible: a day with a
+stop event and no start, or a trading day with no open event, is a hole in a hash-chained record, with a
+shape. <strong>Premeditation wins; it just does not get to look like an accident.</strong> That is the whole
+claim — this tool converts an impulse into a decision that has to be taken cold, in advance, and that leaves
+a mark.</p>
+
+<h3>Manipulating the system clock</h3>
+<p>Partially defended, and the boundary is exact.</p>
+<ul>
+  <li><strong>In session</strong> (the add-on has been running since arming): defended. Expiry is measured on
+  a monotonic counter you cannot set, divergence between wall and monotonic time is detected, and the seal is
+  maintained in every ambiguous case. Moving the clock forward blocks trading rather than unlocking it.</li>
+  <li><strong>Across a restart: not defended.</strong> Monotonic continuity dies with the process. Someone
+  who closes NinjaTrader, sets the clock past the expiry, and reopens it gets a released seal, because the
+  code has no evidence that time did not pass.</li>
+</ul>
+<p>What remains, again, is the trace: every backward observation is logged, and correcting the clock
+afterwards leaves a non-monotonic timestamp sequence inside a hash-chained file that cannot be quietly
+repaired. Closing this gap properly needs a time source outside the machine, and v1 opens no sockets. It is
+listed as a v2 question, not as a solved problem.</p>
+
+<h3>Slippage and gaps</h3>
+<p>The guard removes discretion and exposure; it does not bound the number. A market that gaps through the
+limit between the breach and the fill produces a loss larger than the limit, and no add-on running inside a
+trading platform can prevent that. Three prop firms
+<a href="compatibility.html#dll">say the same thing about their own daily loss limits</a>.</p>
+
+<h3>Everything outside its sight</h3>
+<p>Trading the same firm account from another platform, from a phone app, or from a second NinjaTrader
+installation. Firm rules other than the daily loss limit. A user with disk access who deletes the state
+directory between sessions — detected on the next start as a missing state, which fails closed, but not
+prevented.</p>
+
+<h3>Firm minimum-hold rules</h3>
+<p>Two firms require every individual trade to stay open at least ten seconds. If your limit is reached
+within ten seconds of a position opening, the flatten is itself the violation — a defect of the
+<em>combination</em>, not of either rule alone. v1 flattens anyway and says so, and the ledger records each
+position's age at the flatten so you can see whether a lockout could have tripped the rule. The full
+reasoning, the quotes and an honest sizing of how often this can bite are on the compatibility page under
+<a href="compatibility.html#ten-seconds">the ten-second problem</a>.</p>
+
+<h2>The part that costs a sale</h2>
+
+<p><strong>Where a venue-side self-set daily loss limit exists, it is stronger than this add-on.</strong>
+Tradovate exposes one, and firms that use it document that once set it cannot be overridden even by their
+own staff. A venue-side limit does not depend on your machine being on, on NinjaTrader running, or on this
+code being installed. Use it if you have it.</p>
+
+<p>This add-on is for when you do not — or when you want a stricter personal limit on top of it, with a
+local auditable record of every attempt to loosen it.</p>
+
+<p>NinjaTrader's own risk plumbing is not a substitute either, and not for the reason people assume: its
+risk templates are per-instrument margins and size caps with no daily-loss concept at all, and the
+daily-loss-shaped fields are values <em>the venue reports</em> and NinjaTrader mirrors. The members that
+would let an add-on act on them are public in the assembly and absent from the published API reference. This
+add-on ignores all of them: a public setter is not an enforcement contract, and a guardian built on an
+undocumented member stops protecting silently when that member changes.</p>
+
+<h2>What was measured, rather than assumed</h2>
+
+<p>Every claim in the specification that depended on NinjaTrader behaving a certain way was checked inside
+the running process:</p>
+
+<ul>
+  <li><strong>No pre-submit hook exists</strong> — 2,912 types scanned at runtime, zero events that could
+  veto an order before submission.</li>
+  <li><strong>Detect-and-cancel takes 14.4 ms</strong> from seeing a live order to submitting the cancel,
+  inside a cycle that took 315.9 ms end to end.</li>
+  <li><strong><code>America/Chicago</code> throws inside NinjaTrader</strong> — the runtime resolves Windows
+  time zone ids only, so an embedded translation table is what makes the session boundary work at all.</li>
+  <li><strong>Sleep does not stop the monotonic clock</strong> — two real machine suspends moved wall
+  against monotonic time by 41 and 53 ms, where a stopped counter would have moved 5,000. A suspend raises no
+  false alarm.</li>
+</ul>
+
+<h2>Requirements, and where it is today</h2>
+
+<p>NinjaTrader 8 on Windows, running on your own machine. Installation is a script, one <code>F5</code> in
+the NinjaScript Editor, and a restart. Uninstalling is one command and restores NinjaTrader's project file
+from a backup the installer made before touching it; your ledger is deliberately left behind.</p>
+
+<div class="status">
+  <strong>Status: in testing — not yet released. No users. Soak in progress.</strong>
+  <p>26 of 26 named guarantees implemented, 137 collected test cases, all passing, 0 skipped — that is the
+  conformance statement, rather than "it works". The last soak run (2026-08-21, 12:28 UTC) drove the add-on
+  through six attack scenarios on a simulated account and passed 6 of 6. <strong>It has not been run for a
+  full session on a funded account.</strong></p>
+</div>
+
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Numbers on this page were measured on the developer's machine inside NinjaTrader 8, on a simulated
+    account. Nothing here is financial advice, legal advice or a compliance opinion.</p>
+    <p>Page last updated 2026-08-21. <a href="contact.html">Contact</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
