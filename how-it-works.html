@@ -120,7 +120,9 @@ build and it has been taken down rather than restated.</p>
 
 <h2>3. Fail-closed: when it does not know, it stops</h2>
 
-<p>Any of these means the guard does not know the truth, so it blocks new entries and says why:</p>
+<p>Any of these means the guard does not know the truth, so it declares itself blind and <strong>stops
+enforcing your limit</strong> — it takes <strong>no broker action at all</strong> while it does not know,
+and it says why:</p>
 
 <ul>
   <li>P&amp;L not computable — for example, no market data for an open position;</li>

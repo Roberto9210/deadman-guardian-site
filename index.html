@@ -29,8 +29,10 @@
 
 <p class="lede">deadman-guardian is a NinjaTrader&nbsp;8 add-on that watches your day's P&amp;L and, when you
 reach a personal loss limit you set stricter than your firm's, <strong>asks the platform to cancel your
-working orders and flatten everything, then reads the account back to check</strong>, and blocks new entries
-until the session rolls at 17:00 CT. You cannot turn it off for the rest of the day. That is the product —
+working orders and flatten everything, then reads the account back to check</strong>, and marks the account
+locked until the session rolls at 17:00 CT — <strong>a state whose only enforcement is to keep attempting to
+flatten: nothing here can prevent an order from reaching your broker.</strong>
+You cannot turn it off for the rest of the day. That is the product —
 and <a href="how-it-works.html">how often that check has actually confirmed is on the how-it-works page, in
 full</a>.</p>
 
