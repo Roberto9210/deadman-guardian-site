@@ -82,12 +82,16 @@ also the only large sample we have. <strong>So "the position gets closed" is not
 promise you: it is something the guard attempts, reports honestly when it fails, and never stops
 attempting.</strong></p>
 
-<p>The same is true one step earlier, of the cancel. Entering the lockout asks the platform to cancel every
-working order, and the ledger records <strong>168</strong> such requests. <strong>What it does not record is
-a confirmation:</strong> there is no separate verification event for the cancel, so the only proof it ever
-worked is folded inside that one verified flatten, which also re-reads the working orders.
-<strong>168 requests, one confirmation.</strong> The cancel is not claimed here as a thing that happened; it
-is a thing that was asked for.</p>
+<p>The same is true one step earlier, of the cancel, and here the record says something sharper than we
+first published. Entering the lockout asks the platform to cancel every working order, and the ledger holds
+<strong>168</strong> such requests — <strong>and all 168 report having cancelled zero orders.</strong> Every
+one of them carries <code>count: 0</code>. In the product's entire recorded life <strong>the sweep has never
+cancelled an order</strong>. <strong>Whether that is because nothing was resting or because it did not see
+what was there is not determinable from the record</strong>, with one exception: in the 2026-08-26 episode
+the trader's order arrives <strong>64 ms after</strong> the sweep, so there it was simply not yet there.
+There is also no separate verification event for the cancel, so the only re-read that ever covered working
+orders is folded inside the single verified flatten. The cancel is not claimed here as a thing that
+happened; it is a thing that was asked for, 168 times, with nothing to show for it in the record.</p>
 
 <p>The failure is also, today, <strong>undiagnosable from the record</strong>: the event carries a
 counter and no reason, so a broker that did not confirm and a position that reopened look identical in
