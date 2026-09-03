@@ -73,20 +73,39 @@ fill</strong>: the guard neither cancels it nor records it.</p>
 <p>What the guard does instead is <strong>keep trying to flatten, and verify rather than assume</strong>:
 every cycle it asks the platform to flatten, then reads the positions back, and if they are not flat it
 writes <code>LOCKOUT_INCOMPLETE</code> and tries again. <strong>Here is what that has actually done, in
-full.</strong> In the product's entire recorded life there is <strong>one</strong> verified flatten. There
-is also one episode — 2026-08-26, on a simulated account — where it tried <strong>167 times and the
-position never closed</strong>. <strong>It did not give up, because it has no limit to give up at:</strong>
-from the third attempt onwards it marks the failure and tells you it needs you, and then it keeps
-trying — that day, 164 more times. The episode had a cause we found and fixed the same day, and it is
-also the only large sample we have. <strong>So "the position gets closed" is not something this page can
+full — and in the two units that must not be mixed, because we mixed them ourselves and the defect came
+out looking worse than it is.</strong></p>
+
+<table>
+  <tr><th>counted in</th><th>what the ledger holds</th></tr>
+  <tr><td><strong>lockout episodes</strong> (a limit actually reached)</td><td><strong>2</strong>, both on
+  a simulated account: 2026-08-26 and 2026-08-31</td></tr>
+  <tr><td>…of those, under <strong>the code that ships today</strong></td><td><strong>1</strong> — and
+  <strong>it verified</strong>, on the third attempt</td></tr>
+  <tr><td>flatten <strong>cycles</strong> that ended incomplete</td><td><strong>169</strong> — but
+  <strong>167 of them are the single 2026-08-26 episode</strong>, and 2 are the first two attempts of the
+  one that then succeeded</td></tr>
+  <tr><td>verified flattens</td><td><strong>1</strong></td></tr>
+</table>
+
+<p>So the honest sentence is not "one success in 170 tries". It is: <strong>this product has reached a
+lockout twice, once under the code you would install, and that once it closed the position and proved
+it.</strong> The 2026-08-26 episode failed for a cause we found and removed the next day — the guard was
+cancelling its own flatten orders — and it is still the only large sample we have of what failure looks
+like. <strong>It did not give up, because it has no limit to give up at:</strong> from the third attempt
+onwards it marks the failure and tells you it needs you, and then it keeps trying — that day, 164 more
+times. <strong>Two episodes is not evidence that it works.</strong> It is the number we have, and
+publishing it as 1-against-169 would have been a defect exaggerated, which is exactly as false as a
+capability promised. <strong>So "the position gets closed" is not something this page can
 promise you: it is something the guard attempts, reports honestly when it fails, and never stops
 attempting.</strong></p>
 
 <p>The same is true one step earlier, of the cancel, and here the record says something sharper than we
 first published. Entering the lockout asks the platform to cancel every working order, and the ledger holds
-<strong>168</strong> such requests — <strong>and all 168 report having cancelled zero orders.</strong> Every
-one of them carries <code>count: 0</code>. In the product's entire recorded life <strong>the sweep has never
-cancelled an order</strong>. <strong>Whether that is because nothing was resting or because it did not see
+<strong>168</strong> such requests — 167 of them from the same 2026-08-26 episode and 1 from the 2026-08-31
+one, so again: <strong>two episodes, not 168 chances</strong> — <strong>and all 168 report having cancelled
+zero orders.</strong> Every one of them carries <code>count: 0</code>. In the product's entire recorded life
+<strong>the sweep has never cancelled an order</strong>. <strong>Whether that is because nothing was resting or because it did not see
 what was there is not determinable from the record</strong>, with one exception: in the 2026-08-26 episode
 the trader's order arrives <strong>64 ms after</strong> the sweep, so there it was simply not yet there.
 There is also no separate verification event for the cancel, so the only re-read that ever covered working
