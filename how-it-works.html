@@ -65,14 +65,58 @@ to be interrupted is still safe:</p>
 a promise: the soak suite kills the process mid-lockout on a simulated account and checks that the restart
 resumes <code>LOCKED</code>.</p>
 
-<p><strong>A single flatten is not a lockout.</strong> While locked, every new order — from the DOM, a
-chart, a running strategy — is cancelled on sight and recorded as <code>ORDER_REJECTED_LOCKED</code>.</p>
+<p><strong>A single flatten is not a lockout — and nothing is cancelled while locked. This is the
+sentence to read twice.</strong> Entering the lockout sweeps the resting orders <em>once</em>. After
+that, a new order — from the DOM, a chart, a running strategy — <strong>reaches your broker and can
+fill</strong>: the guard neither cancels it nor records it.</p>
 
-<p>Enforcement is <em>detect-and-cancel</em>, not prevention, and that is a platform fact rather than a
-design choice: 2,912 types were scanned inside the running NinjaTrader process and <strong>no pre-submit
-hook exists</strong> — there is no event that can veto an order before submission. The full cycle was
-measured at <strong>315.9 ms</strong> end to end, of which <strong>14.4 ms</strong> were ours and the rest
-belonged to the platform and the venue.</p>
+<p>What the guard does instead is <strong>keep trying to flatten, and verify rather than assume</strong>:
+every cycle it asks the platform to flatten, then reads the positions back, and if they are not flat it
+writes <code>LOCKOUT_INCOMPLETE</code> and tries again. <strong>Here is what that has actually done, in
+full.</strong> In the product's entire recorded life there is <strong>one</strong> verified flatten. There
+is also one episode — 2026-08-26, on a simulated account — where it tried <strong>167 times and the
+position never closed</strong>. <strong>It did not give up, because it has no limit to give up at:</strong>
+from the third attempt onwards it marks the failure and tells you it needs you, and then it keeps
+trying — that day, 164 more times. The episode had a cause we found and fixed the same day, and it is
+also the only large sample we have. <strong>So "the position gets closed" is not something this page can
+promise you: it is something the guard attempts, reports honestly when it fails, and never stops
+attempting.</strong></p>
+
+<p>The same is true one step earlier, of the cancel. Entering the lockout asks the platform to cancel every
+working order, and the ledger records <strong>168</strong> such requests. <strong>What it does not record is
+a confirmation:</strong> there is no separate verification event for the cancel, so the only proof it ever
+worked is folded inside that one verified flatten, which also re-reads the working orders.
+<strong>168 requests, one confirmation.</strong> The cancel is not claimed here as a thing that happened; it
+is a thing that was asked for.</p>
+
+<p>The failure is also, today, <strong>undiagnosable from the record</strong>: the event carries a
+counter and no reason, so a broker that did not confirm and a position that reopened look identical in
+the log. That is an open defect, and it is named here rather than left for you to discover.</p>
+
+<p><strong>Which means this does not replace watching your platform, and it is not built to.</strong>
+If the guard says it needs you — that is the panel turning red and writing
+<code>LOCKOUT_INCOMPLETE</code> — <strong>go and check the flatten yourself in NinjaTrader</strong>.
+When the last brake does not verify, a person is what closes the gap, and that is the one instruction
+this page can honestly give you today.</p>
+
+<p>Until 2026-08-27 the guard did cancel on sight, and a live test the day before showed what that costs:
+it cancelled <strong>its own flatten orders</strong> and <strong>four orders of the trader's</strong>,
+rejected twelve times between them in the six and a half seconds from 23:44:27 to 23:44:33. The record
+names each order's direction — two <code>Sell</code>, one <code>SellShort</code>, one
+<code>BuyToCover</code> — and it does <strong>not</strong> say whether any of them was reducing the
+position or opening one, because the event carries no quantity. Cancelling wrongly can trap someone in a
+sinking position, which is unbounded and caused by us; not cancelling costs one order's worth of
+exposure. The trade was taken
+deliberately and it is written down, with its restoration condition, in <a
+href="https://github.com/Roberto9210/deadman-guardian/blob/main/AMENDMENTS.md">AMENDMENTS.md, A11</a>.
+<code>ORDER_REJECTED_LOCKED</code> is not written any more.</p>
+
+<p>Nothing here can stop an order from reaching the venue, and that is a platform fact rather than a
+design choice: 2,912 types were scanned inside the running NinjaTrader process and <strong>no
+pre-submit hook exists</strong> — there is no event that can veto an order before submission. This page
+used to quote a 315.9 ms cycle, of which 14.4 ms were ours. That measurement was real, and it measured
+the cancel-on-sight mechanism that was removed on 2026-08-26, so it is not a claim about the current
+build and it has been taken down rather than restated.</p>
 
 <h2>3. Fail-closed: when it does not know, it stops</h2>
 
@@ -200,8 +244,9 @@ the running process:</p>
 <ul>
   <li><strong>No pre-submit hook exists</strong> — 2,912 types scanned at runtime, zero events that could
   veto an order before submission.</li>
-  <li><strong>Detect-and-cancel takes 14.4 ms</strong> from seeing a live order to submitting the cancel,
-  inside a cycle that took 315.9 ms end to end.</li>
+  <li><strong>What follows from having no hook</strong> — an order sent while locked reaches the venue
+  and can fill. What the guard does after that is attempt a flatten and verify it; how often that has
+  actually verified is stated above, in full.</li>
   <li><strong><code>America/Chicago</code> throws inside NinjaTrader</strong> — the runtime resolves Windows
   time zone ids only, so an embedded translation table is what makes the session boundary work at all.</li>
   <li><strong>Sleep does not stop the monotonic clock</strong> — two real machine suspends moved wall
@@ -217,8 +262,19 @@ from a backup the installer made before touching it; your ledger is deliberately
 
 <div class="status">
   <strong>Status: in testing — not yet released. No users. Soak in progress.</strong>
-  <p>26 of 26 named guarantees implemented, 137 collected test cases, all passing, 0 skipped — that is the
-  conformance statement, rather than "it works". The last soak run (2026-08-21, 12:28 UTC) drove the add-on
+  <p><strong>25 of 26 named guarantees implemented</strong>, all passing, 0 skipped — that is the
+  conformance statement, rather than "it works". <strong>The one that is not is <code>G8</code></strong>,
+  <em>"orders after lockout are cancelled and logged"</em>, unimplemented since 2026-08-27 for the reason
+  given further up this page. Its text is deliberately not rewritten to match the code, because the gap is
+  real and rewriting it would delete the gap from view. That number is computed from the specification, not
+  typed: it said "26 of 26" for the six days from 2026-08-27 to 2026-09-02, after <code>G8</code> stopped
+  being implemented, because <strong>nothing obliged a hand-written number to go down</strong>. A test
+  count used to sit here and was removed rather than updated:
+  the number climbs on its own, says nothing about coverage, and is wrong again the following week. The
+  soak run quoted below is from <strong>2026-08-21</strong> and <strong>predates</strong> three findings
+  that followed it, the last of which showed the guard stopped enforcing after its first verified
+  flatten. It has not been re-run, and today it cannot be: one of its assertions describes behaviour
+  that was removed on 2026-08-27. The last soak run (2026-08-21, 12:28 UTC) drove the add-on
   through six attack scenarios on a simulated account and passed 6 of 6. <strong>It has not been run for a
   full session on a funded account.</strong></p>
 </div>

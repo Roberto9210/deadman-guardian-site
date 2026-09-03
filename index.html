@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>deadman-guardian</title>
-<meta name="description" content="A NinjaTrader 8 add-on that closes your positions at a personal daily loss limit you set stricter than your firm's. In testing, not released.">
+<meta name="description" content="You set a daily loss limit stricter than your firm's and seal it for the day. NinjaTrader 8 add-on, hash-chained record you can check yourself. In testing, not released.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -25,12 +25,14 @@
 
 <main id="main" class="wrap">
 
-<h1>It closes your positions at your limit, not your firm's.</h1>
+<h1>Your limit, not your firm's — sealed until the market closes.</h1>
 
 <p class="lede">deadman-guardian is a NinjaTrader&nbsp;8 add-on that watches your day's P&amp;L and, when you
-reach a personal loss limit you set stricter than your firm's, flattens everything, cancels your working
-orders, and refuses new entries until the session rolls at 17:00 CT. You cannot turn it off for the rest of
-the day. That is the product.</p>
+reach a personal loss limit you set stricter than your firm's, <strong>asks the platform to cancel your
+working orders and flatten everything, then reads the account back to check</strong>, and blocks new entries
+until the session rolls at 17:00 CT. You cannot turn it off for the rest of the day. That is the product —
+and <a href="how-it-works.html">how often that check has actually confirmed is on the how-it-works page, in
+full</a>.</p>
 
 <div class="status">
   <strong>Status: in testing — not yet released. No users. Soak in progress.</strong>
@@ -41,7 +43,8 @@ the day. That is the product.</p>
 </div>
 
 <p class="why"><strong>Why believe any of this?</strong> The specification was written before the first line
-of C#, the implementation ships <strong>26 of 26</strong> named guarantees under 137 tests, and the same
+of C#, the implementation ships <strong>25 of 26</strong> named guarantees — and
+<a href="#method">names the one it does not</a> — and the same
 discipline is public in two repositories you can read today — including
 <a href="https://github.com/Roberto9210/honest-strategy-search">one where the published result is that
 nothing worked</a>. <a href="#method">The method, in full ↓</a><br>
@@ -52,9 +55,9 @@ nothing worked</a>. <a href="#method">The method, in full ↓</a><br>
 
 <h3>It does not bound your loss</h3>
 <p>It bounds your <em>exposure</em> and removes your discretion. Between reaching your limit and the position
-actually closing, the market keeps moving. Measured inside the running platform, the full detect-and-cancel
-cycle was <strong>315.9 milliseconds</strong> — of which <strong>14.4 were ours</strong> and the rest
-belonged to NinjaTrader and the venue. A gap or a fast market goes straight through that. Three prop firms
+actually closing, the market keeps moving — and the
+closing is an <em>attempt</em> that has to be observed to succeed, not a step that is assumed to work.
+A gap or a fast market goes straight through that, and so does a flatten that does not verify. Three prop firms
 say the same thing about their own daily loss limits, in their own words;
 <a href="compatibility.html#dll">they are quoted on the compatibility page</a>.</p>
 
@@ -85,11 +88,18 @@ record — instead of a moment of weakness at 14:30.</p>
   than your firm's. When you press Arm, the configuration is sealed with a hash until 17:00 CT. Every change
   is rejected — including one that would make the limit <em>stricter</em>.</li>
   <li><strong>When you reach it, it acts in an order that survives a crash.</strong> The lockout writes its
-  state to disk <em>before</em> the first order reaches your broker, then cancels, then flattens, then
-  verifies — and if the positions are not actually flat it says <code>LOCKOUT_INCOMPLETE</code> and keeps
-  trying rather than reporting a success it did not observe.</li>
-  <li><strong>A single flatten is not a lockout.</strong> While locked, every new order — from the DOM, a
-  chart, a running strategy — is cancelled on sight and recorded.</li>
+  state to disk <em>before</em> the first order reaches your broker, then asks the platform to cancel
+  the working orders, then to flatten, and then <strong>re-reads the positions</strong> — and if they
+  are not actually flat it says <code>LOCKOUT_INCOMPLETE</code> and keeps
+  trying rather than reporting a success it did not observe. <strong>What is re-read is the
+  positions</strong>; the cancel has no confirmation of its own.</li>
+  <li><strong>A single flatten is not a lockout — and nothing is cancelled while locked.</strong>
+  Entering the lockout sweeps the resting orders once; after that a new order reaches your broker and
+  can fill. The guard then keeps trying to flatten and verifies rather than assumes — and the honest
+  record is one verified flatten in the product's life, plus one episode where it tried 167 times
+  without closing the position. <strong>So it does not replace watching your platform: if it says it
+  needs you, check the flatten yourself.</strong> <a href="how-it-works.html">What that means, in
+  full →</a></li>
   <li><strong>When it does not know, it stops.</strong> Account disconnected, P&amp;L not computable, its own
   numbers disagreeing with NinjaTrader's beyond your tolerance, the system clock jumping: all of these block
   new entries and say why.</li>
@@ -108,9 +118,16 @@ reads your fills and your account's P&amp;L, locally, and writes to three files 
 <h2 id="method">The method, and why it is the whole pitch</h2>
 
 <p>The specification was written <strong>before the first line of C#</strong>, including a section titled
-<em>"What this does not protect against."</em> The implementation carries <strong>26 named guarantees</strong>
-and <strong>137 tests</strong>, and the conformance statement is <em>"26 of 26"</em> rather than "it works".
-Two of those guarantees are about what the code is <em>not</em>: one asserts by reflection that the core
+<em>"What this does not protect against."</em> The implementation carries <strong>26 named guarantees</strong>,
+and the conformance statement is <em>"25 of 26"</em> rather than "it works" — <strong>and it names the one
+that is not implemented.</strong> <code>G8</code> says <em>"orders after lockout are cancelled and
+logged"</em>, and since 2026-08-27 the guard deliberately does the opposite, because cancelling on sight
+cancelled its own flatten and four orders of the trader's. The guarantee's text is <strong>not</strong>
+rewritten to match the code: the gap is real, and rewriting it would delete the gap from view. That number
+is now computed from the specification rather than typed by hand — it read "26 of 26" for the six days from
+2026-08-27 to 2026-09-02, after <code>G8</code> stopped being implemented, because <strong>nothing obliged
+a hand-written number to go down</strong>.
+Two of the guarantees are about what the code is <em>not</em>: one asserts by reflection that the core
 library references no NinjaTrader assembly and no network stack; another that no <code>double</code> appears
 anywhere on its public surface, because money is <code>decimal</code> or it is a rounding bug waiting for a
 bad day.</p>
