@@ -68,7 +68,10 @@ resumes <code>LOCKED</code>.</p>
 <p><strong>A single flatten is not a lockout — and nothing is cancelled while locked. This is the
 sentence to read twice.</strong> Entering the lockout sweeps the resting orders <em>once</em>. After
 that, a new order — from the DOM, a chart, a running strategy — <strong>reaches your broker and can
-fill</strong>: the guard neither cancels it nor records it.</p>
+fill</strong>: the guard does not cancel it. <strong>Since 2026-09-03 it does write it down</strong> —
+a line naming the order, its instrument and its direction, saying it was seen while locked and that
+nothing was done to it. That is a record, not a brake: <strong>the order still goes through</strong>.
+Until that date it was not even recorded, and this page said so.</p>
 
 <p>What the guard does instead is <strong>keep trying to flatten, and verify rather than assume</strong>:
 every cycle it asks the platform to flatten, then reads the positions back, and if they are not flat it
