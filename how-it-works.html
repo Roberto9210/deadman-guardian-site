@@ -68,9 +68,10 @@ resumes <code>LOCKED</code>.</p>
 <p><strong>A single flatten is not a lockout — and nothing is cancelled while locked. This is the
 sentence to read twice.</strong> Entering the lockout sweeps the resting orders <em>once</em>. After
 that, a new order — from the DOM, a chart, a running strategy — <strong>reaches your broker and can
-fill</strong>: the guard does not cancel it. <strong>Since 2026-09-03 it does write it down</strong> —
+fill</strong>: the guard does not cancel it. <strong>Since 2026-09-03 the code to write it down is deployed</strong> —
 a line naming the order, its instrument and its direction, saying it was seen while locked and that
-nothing was done to it. That is a record, not a brake: <strong>the order still goes through</strong>.
+nothing was done to it. No lockout has occurred under that build, so the ledger does not yet hold a
+single one of those lines: <strong>a capability installed, not a behaviour observed</strong>. That is a record, not a brake: <strong>the order still goes through</strong>.
 Until that date it was not even recorded, and this page said so.</p>
 
 <p>What the guard does instead is <strong>keep trying to flatten, and verify rather than assume</strong>:
@@ -313,7 +314,7 @@ from a backup the installer made before touching it; your ledger is deliberately
   <div class="wrap">
     <p>Numbers on this page were measured on the developer's machine inside NinjaTrader 8, on a simulated
     account. Nothing here is financial advice, legal advice or a compliance opinion.</p>
-    <p>Page last updated 2026-08-21. <a href="contact.html">Contact</a></p>
+    <p>Page last updated 2026-09-03. <a href="contact.html">Contact</a></p>
   </div>
 </footer>
 
